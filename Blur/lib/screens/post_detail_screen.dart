@@ -1,4 +1,4 @@
-// ignore_for_file: unused_element_parameter
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -534,10 +534,10 @@ class _CState {
     required this.content,
     required this.timeAgo,
     required this.likes,
-    this.isLiked = false,
     List<_CState>? replies,
-    this.showReplies = false,
-  }) : replies = replies ?? [];
+  })  : isLiked = false,
+        showReplies = false,
+        replies = replies ?? [];
 
   factory _CState.from(Comment c) => _CState(
         id: c.id,

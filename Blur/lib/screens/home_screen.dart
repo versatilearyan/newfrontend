@@ -135,30 +135,45 @@ class _CampusDrawer extends StatefulWidget {
 }
 
 class _CampusDrawerState extends State<_CampusDrawer> {
-  final List<ChannelModel> _favorites = [
-    ChannelModel(emoji: '🏏', name: 'Cricket',            subtitle: 'Public · Sports', badge: 4,  isFav: true),
-    ChannelModel(emoji: '💕', name: 'India Relationships', subtitle: 'Public',          badge: 1,  isFav: true),
-    ChannelModel(emoji: '🏛️', name: 'Indian Politics',     subtitle: 'Public',                     isFav: true),
-    ChannelModel(emoji: '📰', name: 'India News',          subtitle: 'Public',                     isFav: true),
-    ChannelModel(emoji: '💼', name: 'India WorkLife',      subtitle: 'Public',          badge: 99, isFav: true),
-    ChannelModel(emoji: '🇮🇳', name: 'India',              subtitle: 'Public',                     isFav: true),
-    ChannelModel(emoji: '🌐', name: 'Namma Bangalore',     subtitle: 'Public',                     isFav: true),
-  ];
+  // ✅ Favorites = top 7 lounges by members from sampleLounges
+  late final List<ChannelModel> _favorites = () {
+    final sorted = [...sampleLounges]
+      ..sort((a, b) => b.members.compareTo(a.members));
+    return sorted.take(7).map((l) => ChannelModel(
+      emoji: '',
+      name: l.name,
+      subtitle: l.category,
+      isFav: true,
+    )).toList();
+  }();
 
-  final List<ChannelModel> _following = [
-    ChannelModel(emoji: '😂', name: 'LinkedIn Cringe',  subtitle: 'Public',            isFav: false),
-    ChannelModel(emoji: '📚', name: 'Study Groups',     subtitle: 'Public',            isFav: false),
-    ChannelModel(emoji: '💻', name: 'Internship Board', subtitle: 'Public', badge: 12, isFav: false),
-  ];
+  // ✅ Channels I Follow = remaining lounges from sampleLounges
+  late final List<ChannelModel> _following = () {
+    final sorted = [...sampleLounges]
+      ..sort((a, b) => b.members.compareTo(a.members));
+    return sorted.skip(7).map((l) => ChannelModel(
+      emoji: '',
+      name: l.name,
+      subtitle: l.category,
+      isFav: false,
+    )).toList();
+  }();
 
   void _openChannel(BuildContext ctx, ChannelModel ch) {
-    final lounge = Lounge(
+    // ✅ Try to find the real Lounge from sampleLounges first (has members/posts data)
+    final realLounge = sampleLounges.cast<Lounge?>().firstWhere(
+      (l) => l!.name == ch.name,
+      orElse: () => null,
+    );
+
+    final lounge = realLounge ?? Lounge(
       id: ch.name.toLowerCase().replaceAll(' ', '_'),
       name: ch.name,
       category: _inferCategory(ch.subtitle),
       members: 0,
       posts: 0,
     );
+
     Navigator.pop(ctx);
     Future.delayed(const Duration(milliseconds: 280), () {
       if (ctx.mounted) {
@@ -395,8 +410,52 @@ class _DrawerChannelTile extends StatelessWidget {
     required this.onStarTap,
   });
 
+  // Same icon/color map as LoungeStyle in lounges_screen.dart
+  static const _icons = {
+    'Confessions':   Icons.chat_bubble_outline,
+    'Romance':       Icons.favorite_outline,
+    'General':       Icons.nights_stay_outlined,
+    'Career':        Icons.work_outline,
+    'Academics':     Icons.school_outlined,
+    'Memes':         Icons.sentiment_very_satisfied_outlined,
+    'Housing':       Icons.home_outlined,
+    'Social':        Icons.people_outline,
+    'Wellness':      Icons.self_improvement_outlined,
+    'Rants':         Icons.mood_bad_outlined,
+    'Entertainment': Icons.music_note_outlined,
+    'Sports':        Icons.fitness_center_outlined,
+    'Lifestyle':     Icons.style_outlined,
+    'Private':       Icons.lock_outline,
+  };
+
+  static const _colors = {
+    'Confessions':   Color(0xFF0891B2),
+    'Romance':       Color(0xFFEC4899),
+    'General':       Color(0xFF6366F1),
+    'Career':        Color(0xFFD97706),
+    'Academics':     Color(0xFF3B5BDB),
+    'Memes':         Color(0xFFF97316),
+    'Housing':       Color(0xFF059669),
+    'Social':        Color(0xFF7C3AED),
+    'Wellness':      Color(0xFF14B8A6),
+    'Rants':         Color(0xFFEF4444),
+    'Entertainment': Color(0xFF8B5CF6),
+    'Sports':        Color(0xFF16A34A),
+    'Lifestyle':     Color(0xFFDB2777),
+    'Private':       Color(0xFF374151),
+  };
+
   @override
   Widget build(BuildContext context) {
+    // Blur Official → show logo image
+    // Other channels from sampleLounges → show category icon
+    // Legacy emoji channels → show emoji
+    final lounge = sampleLounges.cast<Lounge?>()
+        .firstWhere((l) => l!.name == item.name, orElse: () => null);
+    final cat = lounge?.category ?? item.subtitle;
+    final color = _colors[cat] ?? AppTheme.primary;
+    final icon  = _icons[cat] ?? Icons.tag;
+
     return Material(
       color: context.bgPage,
       child: InkWell(
@@ -406,16 +465,64 @@ class _DrawerChannelTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           child: Row(
             children: [
-              Container(
-                width: 46, height: 46,
-                decoration: BoxDecoration(
-                  color: context.bgCard,
+              // ── Avatar ───────────────────────────────────────────────
+              if (item.name == 'Blur Official')
+                // Real logo for Blur Official
+                ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
+                  child: Image.asset(
+                    'assets/images/blur_logo.png',
+                    width: 46, height: 46, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 46, height: 46,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Text('blur',
+                            style: TextStyle(color: Colors.white,
+                                fontWeight: FontWeight.w800, fontSize: 12)),
+                      ),
+                    ),
+                  ),
+                )
+              else if (item.emoji.isEmpty)
+                // ✅ Lounge from sampleLounges → profile photo
+                Container(
+                  width: 46, height: 46,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: lounge?.profileImageUrl != null
+                        ? Image.network(
+                            lounge!.profileImageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                Icon(icon, color: color, size: 22),
+                            loadingBuilder: (_, child, prog) =>
+                                prog == null
+                                    ? child
+                                    : Icon(icon, color: color, size: 22),
+                          )
+                        : Icon(icon, color: color, size: 22),
+                  ),
+                )
+              else
+                // Legacy / manually created channel → emoji
+                Container(
+                  width: 46, height: 46,
+                  decoration: BoxDecoration(
+                    color: context.bgCard,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
                     child: Text(item.emoji,
                         style: const TextStyle(fontSize: 22))),
-              ),
+                ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -647,7 +754,7 @@ class _SkeletonFeedTab extends StatelessWidget {
 }
 
 // ── Real Feed Tab ─────────────────────────────────────────────────────────────
-class _FeedTab extends StatelessWidget {
+class _FeedTab extends StatefulWidget {
   final TabController tabCtrl;
   final List<String> tabs;
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -661,6 +768,52 @@ class _FeedTab extends StatelessWidget {
   });
 
   @override
+  State<_FeedTab> createState() => _FeedTabState();
+}
+
+class _FeedTabState extends State<_FeedTab> {
+  bool _searchOpen = false;
+  String _query = '';
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  List<Post> get _allPosts => [...samplePosts, ...trendingPosts];
+
+  List<Post> get _results {
+    if (_query.isEmpty) return _allPosts;
+    final q = _query.toLowerCase();
+    return _allPosts.where((p) =>
+        (p.title?.toLowerCase().contains(q) ?? false) ||
+        p.content.toLowerCase().contains(q) ||
+        (p.lounge?.toLowerCase().contains(q) ?? false) ||
+        (p.university?.toLowerCase().contains(q) ?? false) ||
+        p.username.toLowerCase().contains(q)).toList();
+  }
+
+  void _openSearch() {
+    setState(() => _searchOpen = true);
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _searchFocus.requestFocus();
+    });
+  }
+
+  void _closeSearch() {
+    _searchCtrl.clear();
+    _searchFocus.unfocus();
+    setState(() {
+      _searchOpen = false;
+      _query = '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return NestedScrollView(
       key: const ValueKey('feed'),
@@ -671,46 +824,217 @@ class _FeedTab extends StatelessWidget {
           backgroundColor: context.bgSurface,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          title: Row(
-            children: [
-              GestureDetector(
-                onTap: () => scaffoldKey.currentState?.openDrawer(),
-                child: Icon(Icons.menu, color: context.txtMain, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Text('Blur',
-                  style: TextStyle(fontSize: 17,
-                      fontWeight: FontWeight.w700, color: context.txtMain)),
-            ],
+          title: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: _searchOpen
+                // ── Search input ─────────────────────────────────────
+                ? Row(
+                    key: const ValueKey('search'),
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: context.bgCard,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: context.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 10),
+                              Icon(Icons.search,
+                                  color: context.txtLight, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchCtrl,
+                                  focusNode: _searchFocus,
+                                  style: TextStyle(
+                                      fontSize: 14, color: context.txtMain),
+                                  decoration: InputDecoration(
+                                    hintText: 'Search posts, lounges...',
+                                    hintStyle: TextStyle(
+                                        fontSize: 14,
+                                        color: context.txtLight),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onChanged: (v) =>
+                                      setState(() => _query = v),
+                                ),
+                              ),
+                              if (_query.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    _searchCtrl.clear();
+                                    setState(() => _query = '');
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: Icon(Icons.close,
+                                        size: 15, color: context.txtLight),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _closeSearch,
+                        child: Text('Cancel',
+                            style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  )
+                // ── Normal title ─────────────────────────────────────
+                : Row(
+                    key: const ValueKey('title'),
+                    children: [
+                      GestureDetector(
+                        onTap: () =>
+                            widget.scaffoldKey.currentState?.openDrawer(),
+                        child: Icon(Icons.menu,
+                            color: context.txtMain, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Text('Blur',
+                          style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: context.txtMain)),
+                    ],
+                  ),
           ),
-          actions: [
-            IconButton(
-                icon: Icon(Icons.search, color: context.txtMain),
-                onPressed: () {}),
-          ],
-          bottom: TabBar(
-            controller: tabCtrl,
-            isScrollable: true,
-            labelColor: AppTheme.primary,
-            unselectedLabelColor: context.txtSub,
-            indicatorColor: AppTheme.primary,
-            indicatorSize: TabBarIndicatorSize.label,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            tabAlignment: TabAlignment.start,
-            tabs: tabs.map((t) => Tab(text: t)).toList(),
-          ),
+          actions: _searchOpen
+              ? [] // hide when search is open
+              : [
+                  IconButton(
+                    icon: Icon(Icons.search, color: context.txtMain),
+                    onPressed: _openSearch, // ✅ functional
+                  ),
+                ],
+          bottom: _searchOpen
+              ? null // hide tabs during search
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(44),
+                  child: TabBar(
+                    controller: widget.tabCtrl,
+                    isScrollable: true,
+                    labelColor: AppTheme.primary,
+                    unselectedLabelColor: context.txtSub,
+                    indicatorColor: AppTheme.primary,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    labelStyle: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13),
+                    tabAlignment: TabAlignment.start,
+                    tabs: widget.tabs.map((t) => Tab(text: t)).toList(),
+                  ),
+                ),
         ),
       ],
-      body: TabBarView(
-        controller: tabCtrl,
+      body: _searchOpen
+          // ── Search results ──────────────────────────────────────────
+          ? _SearchResults(query: _query, results: _results)
+          // ── Normal feed ─────────────────────────────────────────────
+          : TabBarView(
+              controller: widget.tabCtrl,
+              children: [
+                _AllFeed(),
+                _AllFeed(),
+                _TrendingFeed(),
+                _AcademicsFeed(),
+                _ForYouFeed(),
+              ],
+            ),
+    );
+  }
+}
+
+// ── Search results feed ────────────────────────────────────────────────────────
+class _SearchResults extends StatelessWidget {
+  final String query;
+  final List<Post> results;
+  const _SearchResults({required this.query, required this.results});
+
+  @override
+  Widget build(BuildContext context) {
+    if (query.isEmpty) {
+      // Show recent / suggestions when bar is open but empty
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
         children: [
-          _AllFeed(),
-          _AllFeed(),
-          _TrendingFeed(),
-          _AcademicsFeed(),
-          _ForYouFeed(),
+          Text('Try searching for...',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: context.txtSub)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8, runSpacing: 8,
+            children: [
+              'Placements', 'Confessions', 'Hostel Life',
+              'Crush Corner', 'Memes', 'Midnight Thoughts',
+              'College Drama', 'Internship',
+            ].map((tag) => GestureDetector(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text('#$tag',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w600)),
+              ),
+            )).toList(),
+          ),
         ],
-      ),
+      );
+    }
+
+    if (results.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off_rounded, size: 48, color: context.txtLight),
+            const SizedBox(height: 12),
+            Text('No results for "$query"',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: context.txtSub)),
+            const SizedBox(height: 6),
+            Text('Try different keywords',
+                style: TextStyle(fontSize: 13, color: context.txtLight)),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(top: 8, bottom: 80),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Text(
+            '${results.length} result${results.length == 1 ? '' : 's'} for "$query"',
+            style: TextStyle(fontSize: 13, color: context.txtSub),
+          ),
+        ),
+        ...results.map((p) => PostCard(
+              post: p,
+              onTap: () => _goToPost(context, p),
+            )),
+      ],
     );
   }
 }
